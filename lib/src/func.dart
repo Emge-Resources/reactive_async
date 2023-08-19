@@ -9,19 +9,19 @@ class AsyncException implements Exception {
   AsyncException({required this.message});
 }
 
-enum AsycnState {
+enum AsyncState {
   stale,
   loading,
-  errored,
+  error,
   successful,
 }
 
-class AsyncWrapper {
+class AsyncWrapper<T> {
   bool isLoading = false;
   late Future<void> Function() call;
 
   AsyncException? error;
-  late dynamic data;
+  late T? data;
   late void Function() _onSuccess;
   late void Function() _onError;
 
@@ -33,6 +33,7 @@ class AsyncWrapper {
   }) {
     isLoading = false;
     error = null;
+    data = null;
     setter?.call();
     _onSuccess = () {
       onSuccess?.call();
@@ -47,10 +48,17 @@ class AsyncWrapper {
         error = null;
         setter?.call();
 
-        await func();
+        this.data = await func();
         isLoading = false;
         setter?.call();
-        _onSuccess.call();
+
+        if (func.runtimeType == Future<void>) {
+          _onSuccess.call();
+        } else {
+          if (this.data != null) {
+            _onSuccess.call();
+          }
+        }
       } catch (err) {
         isLoading = false;
         error = AsyncException(message: err.toString());
