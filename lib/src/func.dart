@@ -18,19 +18,20 @@ enum AsyncState {
 
 class AsyncWrapper<T> {
   bool isLoading = false;
-  late Future<void> Function() call;
+  late Future<void> Function()? call;
+  late Future<void> Function() _func;
 
   AsyncException? error;
   late T? data;
   late void Function() _onSuccess;
   late void Function() _onError;
 
-  AsyncWrapper.wrap({
-    required Function func,
-    void Function()? setter,
-    AsyncFuncListener? onSuccess,
-    AsyncFuncErrorListener? onError,
-  }) {
+  AsyncWrapper.wrap(
+      {required Function func,
+      void Function()? setter,
+      AsyncFuncListener? onSuccess,
+      AsyncFuncErrorListener? onError,
+      bool preventDuplicate = true}) {
     isLoading = false;
     error = null;
     data = null;
@@ -42,14 +43,20 @@ class AsyncWrapper<T> {
       if (error == null) return;
       onError?.call(error!);
     };
-    call = () async {
+    _func = () async {
       try {
         isLoading = true;
         error = null;
         setter?.call();
+        if (preventDuplicate) {
+          this.call = null;
+        }
 
         this.data = await func();
         isLoading = false;
+        if (preventDuplicate) {
+          this.call = _func;
+        }
         setter?.call();
 
         if (func.runtimeType == Future<void>) {
@@ -62,9 +69,13 @@ class AsyncWrapper<T> {
       } catch (err) {
         isLoading = false;
         error = AsyncException(message: err.toString());
+        if (preventDuplicate) {
+          this.call = _func;
+        }
         setter?.call();
         _onError.call();
       }
     };
+    call = _func;
   }
 }
